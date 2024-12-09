@@ -1,3 +1,4 @@
+#pragma_once
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -5,9 +6,6 @@
 #include <string>
 #include <cassert>
 
-// Task 1
-// Periodic orbits
- 
 // Global constants
 
 const int m1 = 1;
@@ -146,10 +144,7 @@ const double xOnLine(double y, double a, double b) {
 // Search minimal distance 
 
 std::vector<double> searchMinDist(std::vector<std::vector<double>> vec) {
-    // vec[0] = ksi, vec[1] = eta, vec[2] = v_ksi, vec[3] = v_eta,
-    // vec[4] = C1, vec[5] = count * dt, vec[6] = ksi_prev, vec[7] = eta_prev,
-    // vec[8] = v_ksi_prev, vec[9] = v_eta_prev
-    std::vector<double> minDistVec = vec[0]; 
+     std::vector<double> minDistVec = vec[0]; 
     double minDist;
     for (auto elem : vec) {
         auto startCoords = startPoint(elem[4]);
@@ -170,10 +165,7 @@ std::vector<double> searchMinDist(std::vector<std::vector<double>> vec) {
 // Search minimal velocities
 
 std::vector<double> searchMinVel(std::vector<std::vector<double>> vec) {
-    // vec[0] = ksi, vec[1] = eta, vec[2] = v_ksi, vec[3] = v_eta,
-    // vec[4] = C1, vec[5] = count * dt, vec[6] = ksi_prev, vec[7] = eta_prev,
-    // vec[8] = v_ksi_prev, vec[9] = v_eta_prev
-    std::vector<double> minVelVec = vec[0];
+     std::vector<double> minVelVec = vec[0];
     double minVel;
     for (auto elem : vec) {
         auto startCoords = startPoint(elem[4]);
@@ -194,9 +186,6 @@ std::vector<double> searchMinVel(std::vector<std::vector<double>> vec) {
 // Search minimal R
 
 std::vector<double> searchMinVelAndDist(std::vector<std::vector<double>> vec) {
-    // vec[0] = ksi, vec[1] = eta, vec[2] = v_ksi, vec[3] = v_eta,
-    // vec[4] = C1, vec[5] = count * dt, vec[6] = ksi_prev, vec[7] = eta_prev,
-    // vec[8] = v_ksi_prev, vec[9] = v_eta_prev
     std::vector<double> minVec = vec[0];
     double minScore, minDist, minVel;
     for (auto elem : vec) {
@@ -347,164 +336,3 @@ const void writeResultInFile(std::string C1_str, int& powOfScale,
     fout << "\n\n";
     fout.close();
 }
-
-
-// Task 2
-// Research on the stability of the orbit
-
-// Auxiliary formulas
-
-double mult1(double x1, double x2, double betta) {
-    double num = 3 * pow(x1, 2);
-    double denum = pow(r(x1, x2), 2);
-    return betta * (1 - num / denum);
-}
-
-double mult2(double x1, double x2, double betta) {
-    double num = 3 * betta * x1 * x2;
-    double denum = pow(r(x1, x2), 2);
-    return num / denum;
-}
-
-double uVariation(double dksi,  double deta, double dv,
-    double ksi, double eta, double betta) {
-    double sum_u_1 = 2 * omega * dv;
-    double sum_u_2 = -(mult1(ksi, eta, betta) + alpha) * dksi;
-    double sum_u_3 = mult2(ksi, eta, betta) * deta;
-    return sum_u_1 + sum_u_2 + sum_u_3;
-}
-
-double vVariation(double dksi, double deta, double du,
-    double ksi, double eta, double betta) {
-    double sum_v_1 = -2 * omega * du;
-    double sum_v_2 = mult2(ksi, eta, betta) * dksi;
-    double sum_v_3 = -mult1(eta, ksi, betta) * deta;
-    return sum_v_1 + sum_v_2 + sum_v_3;
-}
-
-// System of equations 2
-
-std::vector<double> f2(const std::vector<double>& vars,
-    const std::vector<double>& coords) {
-    std::vector<double> X(4);
-    X[0] = vars[2];
-    X[1] = vars[3];
-    double betta = G * m2 / (pow(mu, 2) * pow(r(coords[0], coords[1]), 3));
-    X[2] = uVariation(vars[0], vars[1], vars[3], coords[0], coords[1], betta);
-    X[3] = vVariation(vars[0], vars[1], vars[2], coords[0], coords[1], betta);
-    return X;
-}
-
-// Algorithm Runge-Kutta for the variations
-
-std::vector<double> R_K(const std::vector<double>& vars, 
-    const std::vector<double>& coords, double _dt) {
-    auto k1 = f2(vars, coords) * _dt;
-    auto k2 = f2(vars + k1 * 0.5, coords) * _dt;
-    auto k3 = f2(vars + k2 * 0.5, coords) * _dt;
-    auto k4 = f2(vars + k3, coords) * _dt;
-    auto K = k1 + ((k2 + k3) * 2.) + k4;
-    double mult = 1. / 6;
-    auto vars_dt = vars + K * mult;
-    return vars_dt;
-}
-
-int main()
-{
-    // std::string C1_str = "-10";
-    std::string C1_str = "-8.4730036";
-    bool searchIsComplete = true;
-    
-    int const maxScale = 8;
-    double C1 = std::stod(C1_str);
-    std::vector<double> res = {0., 0., 0., 0., C1};
-    if (!searchIsComplete) {
-        int powOfScale = choosePowerOfScale(C1_str);
-        while (powOfScale < maxScale) {
-            std::vector<std::vector<double>> vecMinR, startCoords;
-            
-            double scale = pow(0.1, powOfScale - 1);
-            double step = pow(0.1, powOfScale);
-            ++powOfScale;
-            double start = res[4] - scale;
-            double end = res[4] + scale;
-            C1 = start;
-
-            bool matchCoords = false;
-            if (powOfScale > 6) matchCoords = true;
-            while (C1 < end) {
-                C1 += step;
-                std::cout << std::showpoint << std::setprecision(8)
-                    << "C1: " << C1 << std::endl;
-                auto coords = startPoint(C1);
-                auto minR = calculationOrbit(coords, C1, matchCoords);
-                if (minR.size() == 0) continue;
-                vecMinR.push_back(minR);
-            }
-            if (vecMinR.size() == 0) return 1;
-            res = searchMinDistWithLinearApprx(vecMinR);
-            writeResultInFile(C1_str, powOfScale, vecMinR, res);
-            std::cout << std::endl;
-        }
-    }
-    C1 = res[4];
-    int period;
-    if (searchIsComplete) {
-        std::ifstream fin("C:\\Programs\\code\\Period.txt", std::ios::in);
-        assert(fin.is_open()); fin >> period; fin.close();
-    }
-    else {
-        period = int(res[5] / dt);
-        std::ofstream fout("C:\\Programs\\code\\Period.txt", 'w');
-        fout << period; fout.close();
-    }
-    auto coords = startPoint(C1);
-    uint32_t count = 0;
-    std::cout << std::showpoint << std::setprecision(10)
-        << "\nC1 = " << C1 << std::endl;
-    
-    auto address1 = "C:\\Programs\\code\\Coordinates_" + C1_str + "_.txt";
-    std::ofstream fout1(address1, 'w');
-    auto address2 = "C:\\Programs\\code\\DifEnergy_" + C1_str + "_.txt";
-    std::ofstream fout2(address2, 'w');
-    fout1 << "Ksi: \t       " << "Eta:\n";
-    fout2 << "Period:       " << "Eps - Eps0:\n";
-    while (count != period) {
-        ++count;
-        coords = R_K(coords, dt);
-        double eps = energy(coords);
-        double difEps = abs(eps - eps0);
-        
-        fout1 << std::showpoint << std::setprecision(7) << std::scientific
-            << std::showpos << coords[0] << ' ' << coords[1] << '\n';
-        fout2 << std::showpoint << std::setprecision(7) << std::scientific
-            << count * dt << ' ' << difEps << '\n';
-    }
-    fout1.close();
-    fout2.close();
-
-
-    // Task 2
-    // Research on the stability of the orbit
-    /*auto coords1 = startPoint(C1);
-    
-    std::vector<std::vector<double>> mtrxVars = {
-        {1., 0., 0., 0.},
-        {0., 1., 0., 0.},
-        {0., 0., 1., 0.},
-        {0., 0., 0., 1.}
-    };
-    count = 0;
-    while (count != period) {
-        coords1 = R_K(coords1, dt);
-        mtrxVars[0] = R_K(mtrxVars[0], coords1, dt);
-        mtrxVars[1] = R_K(mtrxVars[1], coords1, dt);
-        mtrxVars[2] = R_K(mtrxVars[2], coords1, dt);
-        mtrxVars[3] = R_K(mtrxVars[3], coords1, dt);
-        ++count;
-    }*/
-    
-
-};
-        
-
